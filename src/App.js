@@ -18,18 +18,33 @@ function App() {
             setNotes(res.data);
         } catch (err) {
             console.error(err);
+            // Load notes from local storage if server fetch fails
+            const localNotes = JSON.parse(localStorage.getItem("notes")) || [];
+            setNotes(localNotes);
         }
     };
 
     const addNote = async () => {
         if (content.trim() === "") return;
+        const newNote = { content, created_at: new Date().toISOString() };
+
         try {
-            await axios.post("http://localhost:3001/notes", { content });
+            await axios.post("http://localhost:3001/notes", newNote);
             setContent("");
-            fetchNotes();
+            fetchNotes(); // Refresh notes after adding
         } catch (err) {
             console.error(err);
+            // Save to local storage as a fallback
+            saveNoteToLocal(newNote);
+            setContent("");
         }
+    };
+
+    const saveNoteToLocal = (note) => {
+        const existingNotes = JSON.parse(localStorage.getItem("notes")) || [];
+        existingNotes.push(note);
+        localStorage.setItem("notes", JSON.stringify(existingNotes));
+        setNotes(existingNotes); // Update state to reflect new note
     };
 
     const deleteNote = async (id) => {
@@ -38,7 +53,16 @@ function App() {
             fetchNotes();
         } catch (err) {
             console.error(err);
+            // Remove from local storage if server deletion fails
+            deleteNoteFromLocal(id);
         }
+    };
+
+    const deleteNoteFromLocal = (id) => {
+        const existingNotes = JSON.parse(localStorage.getItem("notes")) || [];
+        const updatedNotes = existingNotes.filter(note => note.id !== id);
+        localStorage.setItem("notes", JSON.stringify(updatedNotes));
+        setNotes(updatedNotes); // Update state to reflect deletion
     };
 
     return (
@@ -46,7 +70,6 @@ function App() {
             <Navbar />
 
             <div className="main-container">
-              
                 <div className="input-container">
                     <input
                         type="text"
@@ -61,9 +84,8 @@ function App() {
                 </div>
 
                 <div className="notes-container">
-                    {notes.map((note) => (
-                        <div  key={note.id} className="note">
-                       
+                    {notes.map((note, index) => (
+                        <div key={index} className="note">
                             <p>{note.content}</p>
                             <small>{new Date(note.created_at).toLocaleString()}</small>
                             <button id="del" onClick={() => deleteNote(note.id)} className="delete-button">
